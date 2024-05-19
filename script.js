@@ -1,5 +1,7 @@
-let scene, camera, renderer, cube, controls;
+let scene, camera, renderer, cube;
 let container = document.getElementById('container');
+let isDragging = false, previousMousePosition = { x: 0, y: 0 };
+let velocity = { x: 0, y: 0 };
 
 function init() {
     // Scene
@@ -40,57 +42,101 @@ function init() {
         scene.background = rt.texture;
     });
 
-    // Touch Controls
-    let startX, startY, startRotation;
-    let isDragging = false;
-
-    function onTouchStart(event) {
-        isDragging = true;
-        startX = event.touches[0].pageX;
-        startY = event.touches[0].pageY;
-        startRotation = cube.rotation.clone();
-    }
-
-    function onTouchMove(event) {
-        if (isDragging) {
-            let deltaX = event.touches[0].pageX - startX;
-            let deltaY = event.touches[0].pageY - startY;
-
-            cube.rotation.y = startRotation.y + deltaX * 0.01;
-            cube.rotation.x = startRotation.x + deltaY * 0.01;
-        }
-    }
-
-    function onTouchEnd() {
-        isDragging = false;
-    }
-
+    // Event Listeners
+    container.addEventListener('mousedown', onMouseDown);
+    container.addEventListener('mousemove', onMouseMove);
+    container.addEventListener('mouseup', onMouseUp);
     container.addEventListener('touchstart', onTouchStart);
     container.addEventListener('touchmove', onTouchMove);
     container.addEventListener('touchend', onTouchEnd);
 
-    // Physics
-    let velocity = new THREE.Vector3(0, 0.01, 0);
-
-    function animate() {
-        requestAnimationFrame(animate);
-
-        if (!isDragging) {
-            cube.rotation.x += velocity.x;
-            cube.rotation.y += velocity.y;
-            cube.rotation.z += velocity.z;
-        }
-
-        renderer.render(scene, camera);
-    }
+    window.addEventListener('resize', onWindowResize, false);
 
     animate();
 }
 
-window.addEventListener('resize', () => {
+function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-});
+}
+
+function onMouseDown(event) {
+    isDragging = true;
+    previousMousePosition = {
+        x: event.clientX,
+        y: event.clientY
+    };
+}
+
+function onMouseMove(event) {
+    if (isDragging) {
+        const deltaMove = {
+            x: event.clientX - previousMousePosition.x,
+            y: event.clientY - previousMousePosition.y
+        };
+
+        velocity.x = deltaMove.x * 0.01;
+        velocity.y = deltaMove.y * 0.01;
+
+        cube.rotation.y += velocity.x;
+        cube.rotation.x += velocity.y;
+
+        previousMousePosition = {
+            x: event.clientX,
+            y: event.clientY
+        };
+    }
+}
+
+function onMouseUp() {
+    isDragging = false;
+}
+
+function onTouchStart(event) {
+    isDragging = true;
+    previousMousePosition = {
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY
+    };
+}
+
+function onTouchMove(event) {
+    if (isDragging) {
+        const deltaMove = {
+            x: event.touches[0].clientX - previousMousePosition.x,
+            y: event.touches[0].clientY - previousMousePosition.y
+        };
+
+        velocity.x = deltaMove.x * 0.01;
+        velocity.y = deltaMove.y * 0.01;
+
+        cube.rotation.y += velocity.x;
+        cube.rotation.x += velocity.y;
+
+        previousMousePosition = {
+            x: event.touches[0].clientX,
+            y: event.touches[0].clientY
+        };
+    }
+}
+
+function onTouchEnd() {
+    isDragging = false;
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    if (!isDragging) {
+        cube.rotation.x += velocity.y * 0.05;
+        cube.rotation.y += velocity.x * 0.05;
+
+        velocity.x *= 0.95;
+        velocity.y *= 0.95;
+    }
+
+    renderer.render(scene, camera);
+}
 
 init();
