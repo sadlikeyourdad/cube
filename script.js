@@ -1,83 +1,96 @@
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
-import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.18.1/dist/cannon-es.js';
-
-let scene, camera, renderer, cube, world, cubeBody;
-let isUserInteracting = false, onPointerDownPointerX = 0, onPointerDownPointerY = 0, lon = 0, onPointerDownLon = 0, lat = 0, onPointerDownLat = 0;
-
-init();
-animate();
+let scene, camera, renderer, cube, controls;
+let container = document.getElementById('container');
 
 function init() {
+    // Scene
     scene = new THREE.Scene();
+
+    // Camera
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.z = 5;
 
+    // Renderer
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+    container.appendChild(renderer.domElement);
 
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    const pointLight = new THREE.PointLight(0xffffff, 1);
+    pointLight.position.set(5, 5, 5);
+    scene.add(pointLight);
+
+    // Cube
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+    const material = new THREE.MeshStandardMaterial({
+        color: 0x44aa88,
+        roughness: 0.5,
+        metalness: 1,
+    });
     cube = new THREE.Mesh(geometry, material);
     scene.add(cube);
 
-    // Cannon.js setup
-    world = new CANNON.World();
-    world.gravity.set(0, 0, 0);
+    // Universe Background
+    const loader = new THREE.TextureLoader();
+    const texture = loader.load('https://cdn.pixabay.com/photo/2016/11/29/03/14/background-1867601_1280.png', () => {
+        const rt = new THREE.WebGLCubeRenderTarget(texture.image.height);
+        rt.fromEquirectangularTexture(renderer, texture);
+        scene.background = rt.texture;
+    });
 
-    const cubeShape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5));
-    cubeBody = new CANNON.Body({ mass: 1 });
-    cubeBody.addShape(cubeShape);
-    world.addBody(cubeBody);
+    // Touch Controls
+    let startX, startY, startRotation;
+    let isDragging = false;
 
-    // Event listeners for touch interaction
-    document.addEventListener('pointerdown', onPointerDown, false);
-    document.addEventListener('pointermove', onPointerMove, false);
-    document.addEventListener('pointerup', onPointerUp, false);
-    document.addEventListener('pointerout', onPointerUp, false);
-    
-    window.addEventListener('resize', onWindowResize, false);
-}
-
-function onPointerDown(event) {
-    isUserInteracting = true;
-
-    onPointerDownPointerX = event.clientX;
-    onPointerDownPointerY = event.clientY;
-
-    onPointerDownLon = lon;
-    onPointerDownLat = lat;
-}
-
-function onPointerMove(event) {
-    if (isUserInteracting === true) {
-        lon = (onPointerDownPointerX - event.clientX) * 0.1 + onPointerDownLon;
-        lat = (event.clientY - onPointerDownPointerY) * 0.1 + onPointerDownLat;
-
-        cube.rotation.x = THREE.Math.degToRad(lat);
-        cube.rotation.y = THREE.Math.degToRad(lon);
+    function onTouchStart(event) {
+        isDragging = true;
+        startX = event.touches[0].pageX;
+        startY = event.touches[0].pageY;
+        startRotation = cube.rotation.clone();
     }
+
+    function onTouchMove(event) {
+        if (isDragging) {
+            let deltaX = event.touches[0].pageX - startX;
+            let deltaY = event.touches[0].pageY - startY;
+
+            cube.rotation.y = startRotation.y + deltaX * 0.01;
+            cube.rotation.x = startRotation.x + deltaY * 0.01;
+        }
+    }
+
+    function onTouchEnd() {
+        isDragging = false;
+    }
+
+    container.addEventListener('touchstart', onTouchStart);
+    container.addEventListener('touchmove', onTouchMove);
+    container.addEventListener('touchend', onTouchEnd);
+
+    // Physics
+    let velocity = new THREE.Vector3(0, 0.01, 0);
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        if (!isDragging) {
+            cube.rotation.x += velocity.x;
+            cube.rotation.y += velocity.y;
+            cube.rotation.z += velocity.z;
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
 }
 
-function onPointerUp() {
-    isUserInteracting = false;
-}
-
-function onWindowResize() {
+window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-}
+});
 
-function animate() {
-    requestAnimationFrame(animate);
-
-    // Update the physics world
-    world.step(1 / 60);
-
-    // Sync the Three.js cube with Cannon.js body
-    cube.position.copy(cubeBody.position);
-    cube.quaternion.copy(cubeBody.quaternion);
-
-    renderer.render(scene, camera);
-}
+init();
