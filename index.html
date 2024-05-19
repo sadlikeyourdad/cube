@@ -1,33 +1,22 @@
-// script.js
-document.addEventListener('DOMContentLoaded', () => {
-    const cube = document.querySelector('.cube');
-    let rotationSpeed = 5; // Initial rotation speed (in seconds)
-
-    // Function to change the color of cube faces
-    const changeColors = () => {
-        const faces = document.querySelectorAll('.face');
-        faces.forEach(face => {
-            face.style.backgroundColor = `#${Math.floor(Math.random()*16777215).toString(16)}`;
-        });
-    };
-
-    // Add touch event to speed up the rotation
-    cube.addEventListener('touchstart', () => {
-        rotationSpeed = 1; // Increase rotation speed on touch
-        updateAnimationSpeed();
-    });
-
-    // Reset rotation speed when touch ends
-    cube.addEventListener('touchend', () => {
-        rotationSpeed = 5; // Reset to original speed
-        updateAnimationSpeed();
-    });
-
-    // Update the animation duration based on rotation speed
-    const updateAnimationSpeed = () => {
-        cube.style.animationDuration = `${rotationSpeed}s`;
-    };
-
-    // Change colors every few seconds
-    setInterval(changeColors, 2000);
-});
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Cube</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="scene">
+        <div class="cube">
+            <div class="face front"></div>
+            <div class="face back"></div>
+            <div class="face right"></div>
+            <div class="face left"></div>
+            <div class="face top"></div>
+            <div class="face bottom"></div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
