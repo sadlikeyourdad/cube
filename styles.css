@@ -4,61 +4,13 @@ body, html {
     padding: 0;
     width: 100%;
     height: 100%;
+    overflow: hidden;
+    background-color: #000;
+}
+#container {
+    width: 100%;
+    height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: #000;
-    overflow: hidden;
-    position: relative;
-}
-
-.background {
-    position: absolute;
-    width: 200%;
-    height: 200%;
-    top: -50%;
-    left: -50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 10%, rgba(0, 0, 0, 0.1) 100%);
-    animation: rotateBackground 60s linear infinite;
-}
-
-@keyframes rotateBackground {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-.scene {
-    width: 200px;
-    height: 200px;
-    perspective: 800px;
-    position: relative;
-    z-index: 1;
-}
-
-.cube {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    transform-style: preserve-3d;
-    animation: rotateCube 5s linear infinite;
-}
-
-.face {
-    position: absolute;
-    width: 200px;
-    height: 200px;
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid #ccc;
-}
-
-.face.front  { transform: translateZ(100px); }
-.face.back   { transform: rotateY(180deg) translateZ(100px); }
-.face.right  { transform: rotateY(90deg) translateZ(100px); }
-.face.left   { transform: rotateY(-90deg) translateZ(100px); }
-.face.top    { transform: rotateX(90deg) translateZ(100px); }
-.face.bottom { transform: rotateX(-90deg) translateZ(100px); }
-
-@keyframes rotateCube {
-    from { transform: rotateX(0deg) rotateY(0deg); }
-    to { transform: rotateX(360deg) rotateY(360deg); }
 }
