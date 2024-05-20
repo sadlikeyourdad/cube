@@ -1,117 +1,205 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Facebook Messenger Clone</title>
+    <title>Breakout Game</title>
+    <link rel="manifest" href="manifest.json">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
+            background: #222;
             display: flex;
+            justify-content: center;
+            align-items: center;
             height: 100vh;
-            overflow: hidden;
+            margin: 0;
         }
-        .sidebar {
-            width: 300px;
-            background-color: #3b5998;
-            color: white;
-            padding: 10px;
-            overflow-y: auto;
-        }
-        .sidebar h2 {
-            text-align: center;
-        }
-        .chat-window {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            background-color: #f0f2f5;
-        }
-        .messages {
-            flex-grow: 1;
-            padding: 10px;
-            overflow-y: auto;
-        }
-        .message {
-            margin-bottom: 10px;
-            padding: 10px;
-            border-radius: 10px;
-        }
-        .message.sent {
-            background-color: #0084ff;
-            color: white;
-            align-self: flex-end;
-        }
-        .message.received {
-            background-color: #e4e6eb;
-            color: black;
-            align-self: flex-start;
-        }
-        .input-bar {
-            display: flex;
-            padding: 10px;
-            background-color: white;
-            border-top: 1px solid #ccc;
-        }
-        .input-bar input {
-            flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 20px;
-            margin-right: 10px;
-        }
-        .input-bar button {
-            padding: 10px 20px;
-            background-color: #0084ff;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
+        canvas {
+            background: #000;
+            display: block;
+            border: 1px solid #fff;
         }
     </style>
 </head>
 <body>
-
-    <div class="sidebar">
-        <h2>Messenger</h2>
-        <p>Contact 1</p>
-        <p>Contact 2</p>
-        <p>Contact 3</p>
-        <!-- Add more contacts as needed -->
-    </div>
-
-    <div class="chat-window">
-        <div class="messages" id="messages">
-            <!-- Messages will appear here -->
-        </div>
-        <div class="input-bar">
-            <input type="text" id="message-input" placeholder="Type a message...">
-            <button onclick="sendMessage()">Send</button>
-        </div>
-    </div>
-
+    <canvas id="myCanvas" width="480" height="320"></canvas>
     <script>
-        function sendMessage() {
-            const input = document.getElementById('message-input');
-            const messageText = input.value.trim();
-            if (messageText !== "") {
-                const message = document.createElement('div');
-                message.className = 'message sent';
-                message.textContent = messageText;
-                document.getElementById('messages').appendChild(message);
-                input.value = '';
-                // Simulate received message
-                setTimeout(() => {
-                    const receivedMessage = document.createElement('div');
-                    receivedMessage.className = 'message received';
-                    receivedMessage.textContent = "This is a reply.";
-                    document.getElementById('messages').appendChild(receivedMessage);
-                }, 1000);
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js')
+            .then(function(registration) {
+                console.log('Service Worker registered with scope:', registration.scope);
+            }).catch(function(error) {
+                console.log('Service Worker registration failed:', error);
+            });
+        }
+
+        var canvas = document.getElementById("myCanvas");
+        var ctx = canvas.getContext("2d");
+
+        var ballRadius = 10;
+        var x = canvas.width / 2;
+        var y = canvas.height - 30;
+        var dx = 2;
+        var dy = -2;
+        var paddleHeight = 10;
+        var paddleWidth = 75;
+        var paddleX = (canvas.width - paddleWidth) / 2;
+        var rightPressed = false;
+        var leftPressed = false;
+        var brickRowCount = 3;
+        var brickColumnCount = 5;
+        var brickWidth = 75;
+        var brickHeight = 20;
+        var brickPadding = 10;
+        var brickOffsetTop = 30;
+        var brickOffsetLeft = 30;
+        var score = 0;
+        var lives = 3;
+
+        var bricks = [];
+        for (var c = 0; c < brickColumnCount; c++) {
+            bricks[c] = [];
+            for (var r = 0; r < brickRowCount; r++) {
+                bricks[c][r] = { x: 0, y: 0, status: 1 };
             }
         }
-    </script>
 
+        document.addEventListener("keydown", keyDownHandler, false);
+        document.addEventListener("keyup", keyUpHandler, false);
+        document.addEventListener("mousemove", mouseMoveHandler, false);
+
+        function keyDownHandler(e) {
+            if (e.key == "Right" || e.key == "ArrowRight") {
+                rightPressed = true;
+            } else if (e.key == "Left" || e.key == "ArrowLeft") {
+                leftPressed = true;
+            }
+        }
+
+        function keyUpHandler(e) {
+            if (e.key == "Right" || e.key == "ArrowRight") {
+                rightPressed = false;
+            } else if (e.key == "Left" || e.key == "ArrowLeft") {
+                leftPressed = false;
+            }
+        }
+
+        function mouseMoveHandler(e) {
+            var relativeX = e.clientX - canvas.offsetLeft;
+            if (relativeX > 0 && relativeX < canvas.width) {
+                paddleX = relativeX - paddleWidth / 2;
+            }
+        }
+
+        function collisionDetection() {
+            for (var c = 0; c < brickColumnCount; c++) {
+                for (var r = 0; r < brickRowCount; r++) {
+                    var b = bricks[c][r];
+                    if (b.status == 1) {
+                        if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
+                            dy = -dy;
+                            b.status = 0;
+                            score++;
+                            if (score == brickRowCount * brickColumnCount) {
+                                alert("YOU WIN, CONGRATULATIONS!");
+                                document.location.reload();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
+            ctx.fillStyle = "#0095DD";
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawPaddle() {
+            ctx.beginPath();
+            ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
+            ctx.fillStyle = "#0095DD";
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawBricks() {
+            for (var c = 0; c < brickColumnCount; c++) {
+                for (var r = 0; r < brickRowCount; r++) {
+                    if (bricks[c][r].status == 1) {
+                        var brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+                        var brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+                        bricks[c][r].x = brickX;
+                        bricks[c][r].y = brickY;
+                        ctx.beginPath();
+                        ctx.rect(brickX, brickY, brickWidth, brickHeight);
+                        ctx.fillStyle = "#0095DD";
+                        ctx.fill();
+                        ctx.closePath();
+                    }
+                }
+            }
+        }
+
+        function drawScore() {
+            ctx.font = "16px Arial";
+            ctx.fillStyle = "#0095DD";
+            ctx.fillText("Score: " + score, 8, 20);
+        }
+
+        function drawLives() {
+            ctx.font = "16px Arial";
+            ctx.fillStyle = "#0095DD";
+            ctx.fillText("Lives: " + lives, canvas.width - 65, 20);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBricks();
+            drawBall();
+            drawPaddle();
+            drawScore();
+            drawLives();
+            collisionDetection();
+
+            if (x + dx > canvas.width - ballRadius || x - dx < ballRadius) {
+                dx = -dx;
+            }
+            if (y + dy < ballRadius) {
+                dy = -dy;
+            } else if (y + dy > canvas.height - ballRadius) {
+                if (x > paddleX && x < paddleX + paddleWidth) {
+                    dy = -dy;
+                } else {
+                    lives--;
+                    if (!lives) {
+                        alert("GAME OVER");
+                        document.location.reload();
+                    } else {
+                        x = canvas.width / 2;
+                        y = canvas.height - 30;
+                        dx = 2;
+                        dy = -2;
+                        paddleX = (canvas.width - paddleWidth) / 2;
+                    }
+                }
+            }
+
+            if (rightPressed && paddleX < canvas.width - paddleWidth) {
+                paddleX += 7;
+            } else if (leftPressed && paddleX > 0) {
+                paddleX -= 7;
+            }
+
+            x += dx;
+            y += dy;
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
 </body>
 </html>
