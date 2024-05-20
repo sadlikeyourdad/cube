@@ -3,13 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Rotating Cube</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Facebook Messenger Clone</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 300px;
+            background-color: #3b5998;
+            color: white;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        .sidebar h2 {
+            text-align: center;
+        }
+        .chat-window {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #f0f2f5;
+        }
+        .messages {
+            flex-grow: 1;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .message.sent {
+            background-color: #0084ff;
+            color: white;
+            align-self: flex-end;
+        }
+        .message.received {
+            background-color: #e4e6eb;
+            color: black;
+            align-self: flex-start;
+        }
+        .input-bar {
+            display: flex;
+            padding: 10px;
+            background-color: white;
+            border-top: 1px solid #ccc;
+        }
+        .input-bar input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            margin-right: 10px;
+        }
+        .input-bar button {
+            padding: 10px 20px;
+            background-color: #0084ff;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-    <div id="container"></div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.7.1/gsap.min.js"></script>
-    <script src="script.js"></script>
+
+    <div class="sidebar">
+        <h2>Messenger</h2>
+        <p>Contact 1</p>
+        <p>Contact 2</p>
+        <p>Contact 3</p>
+        <!-- Add more contacts as needed -->
+    </div>
+
+    <div class="chat-window">
+        <div class="messages" id="messages">
+            <!-- Messages will appear here -->
+        </div>
+        <div class="input-bar">
+            <input type="text" id="message-input" placeholder="Type a message...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const messageText = input.value.trim();
+            if (messageText !== "") {
+                const message = document.createElement('div');
+                message.className = 'message sent';
+                message.textContent = messageText;
+                document.getElementById('messages').appendChild(message);
+                input.value = '';
+                // Simulate received message
+                setTimeout(() => {
+                    const receivedMessage = document.createElement('div');
+                    receivedMessage.className = 'message received';
+                    receivedMessage.textContent = "This is a reply.";
+                    document.getElementById('messages').appendChild(receivedMessage);
+                }, 1000);
+            }
+        }
+    </script>
+
 </body>
 </html>
