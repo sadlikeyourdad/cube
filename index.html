@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Spinning Circle with Bouncing Balls</title>
+  <title>Spinning Circle with Bouncing Balls and Gravity</title>
   <style>
     body, html {
       margin: 0;
@@ -45,6 +45,9 @@
     // Interrupted segment
     const interruptedAngle = Math.PI / 6; // 30 degrees
 
+    // Gravity
+    const gravity = 0.05; // Adjust as needed
+
     // Ball properties
     const balls = [];
     const ballRadius = 10;
@@ -80,6 +83,9 @@
 
     // Update ball position
     Ball.prototype.update = function() {
+      // Apply gravity
+      this.vy += gravity;
+
       this.x += this.vx;
       this.y += this.vy;
 
@@ -95,25 +101,42 @@
 
         // Check if within the interrupted segment
         const rotatedAngle = angle - rotationAngle;
+        let adjustedRotatedAngle = rotatedAngle % (2 * Math.PI);
+        if (adjustedRotatedAngle < -Math.PI) adjustedRotatedAngle += 2 * Math.PI;
+        if (adjustedRotatedAngle > Math.PI) adjustedRotatedAngle -= 2 * Math.PI;
+
         const halfGap = interruptedAngle / 2;
-        if (Math.abs(rotatedAngle) < halfGap || Math.abs(rotatedAngle - 2 * Math.PI) < halfGap) {
+        if (Math.abs(adjustedRotatedAngle) < halfGap) {
           // Ball exits through the gap
           removeBall(this);
-          spawnBalls(this.x, this.y);
+          spawnBallsAtCenter();
           return;
         }
 
-        // Reflect velocity
+        // Reflect velocity with a slight random variation
         const normalX = dx / distance;
         const normalY = dy / distance;
         const dot = this.vx * normalX + this.vy * normalY;
-        this.vx -= 2 * dot * normalX;
-        this.vy -= 2 * dot * normalY;
+
+        // Reflect the velocity
+        let newVx = this.vx - 2 * dot * normalX;
+        let newVy = this.vy - 2 * dot * normalY;
+
+        // Add slight randomness to the reflection
+        const variation = 0.3; // Adjust for more or less randomness
+        newVx += (Math.random() - 0.5) * variation;
+        newVy += (Math.random() - 0.5) * variation;
+
+        this.vx = newVx;
+        this.vy = newVy;
 
         // Prevent sticking to the boundary
         this.x = centerX + (radius - this.radius) * normalX;
         this.y = centerY + (radius - this.radius) * normalY;
       }
+
+      // Optional: Remove balls that are moving too slow or out of bounds (to prevent infinite growth)
+      // Implement if needed
     };
 
     // Draw ball
@@ -133,14 +156,14 @@
       }
     }
 
-    // Spawn two new balls at the exit point with random velocities
-    function spawnBalls(x, y) {
+    // Spawn two new balls at the center with random velocities
+    function spawnBallsAtCenter() {
       for (let i = 0; i < 2; i++) {
         const speed = 2;
         const angle = Math.random() * 2 * Math.PI;
         const vx = speed * Math.cos(angle);
         const vy = speed * Math.sin(angle);
-        balls.push(new Ball(x, y, vx, vy));
+        balls.push(new Ball(centerX, centerY, vx, vy));
       }
     }
 
