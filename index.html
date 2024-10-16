@@ -99,14 +99,20 @@
         // Calculate angle of collision
         const angle = Math.atan2(dy, dx);
 
-        // Check if within the interrupted segment
-        const rotatedAngle = angle - rotationAngle;
-        let adjustedRotatedAngle = rotatedAngle % (2 * Math.PI);
-        if (adjustedRotatedAngle < -Math.PI) adjustedRotatedAngle += 2 * Math.PI;
-        if (adjustedRotatedAngle > Math.PI) adjustedRotatedAngle -= 2 * Math.PI;
+        // Calculate the current gap center angle
+        const gapCenterAngle = rotationAngle % (2 * Math.PI);
+        // Normalize gapCenterAngle to [0, 2π]
+        const normalizedGapCenter = (gapCenterAngle + 2 * Math.PI) % (2 * Math.PI);
+
+        // Calculate the difference between ball angle and gap center
+        let angleDiff = angle - normalizedGapCenter;
+
+        // Normalize angleDiff to [-π, π]
+        angleDiff = ((angleDiff + Math.PI) % (2 * Math.PI)) - Math.PI;
 
         const halfGap = interruptedAngle / 2;
-        if (Math.abs(adjustedRotatedAngle) < halfGap) {
+
+        if (Math.abs(angleDiff) < halfGap) {
           // Ball exits through the gap
           removeBall(this);
           spawnBallsAtCenter();
@@ -197,7 +203,7 @@
 
       // Draw interrupted segment
       ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, -interruptedAngle / 2 + rotationAngle, interruptedAngle / 2 + rotationAngle, false);
+      ctx.arc(centerX, centerY, radius, -interruptedAngle / 2, interruptedAngle / 2, false);
       ctx.strokeStyle = '#222'; // Same as background to create the gap
       ctx.lineWidth = 4;
       ctx.stroke();
@@ -208,6 +214,7 @@
 
       // Update rotation
       rotationAngle += rotationSpeed;
+      rotationAngle %= (2 * Math.PI); // Keep rotationAngle within [0, 2π]
 
       // Update and draw balls
       balls.forEach(ball => {
