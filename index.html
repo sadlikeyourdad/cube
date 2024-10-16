@@ -2,67 +2,201 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CodeMirror Example</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/monokai.min.css">
+  <title>Spinning Circle with Bouncing Balls</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #222;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-  <h1>CodeMirror Example</h1>
-  <textarea id="code" name="code">
-    int main(void)
-{
-  /* USER CODE BEGIN 1 */
+  <canvas id="canvas"></canvas>
 
-  /* USER CODE END 1 */
-
-  /* MCU Configuration--------------------------------------------------------*/
-
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
-  SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_USART2_UART_Init();
-  MX_TIM2_Init();
-  /* USER CODE BEGIN 2 */
-
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-	  HAL_Delay(500);
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-  }
-  /* USER CODE END 3 */
-}
-  </textarea>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
   <script>
-    var editor = CodeMirror.fromTextArea(document.getElementById('code'), {
-      lineNumbers: true,
-      mode: "javascript",
-      theme: "monokai",
-      readOnly: true
+    // Get canvas and context
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Set canvas size to full window
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      centerX = canvas.width / 2;
+      centerY = canvas.height / 2;
     });
+
+    // Circle properties
+    let centerX = canvas.width / 2;
+    let centerY = canvas.height / 2;
+    const radius = Math.min(canvas.width, canvas.height) / 4;
+    const rotationSpeed = 0.001; // Radians per frame
+    let rotationAngle = 0;
+
+    // Interrupted segment
+    const interruptedAngle = Math.PI / 6; // 30 degrees
+
+    // Ball properties
+    const balls = [];
+    const ballRadius = 10;
+    const initialBalls = 2;
+
+    // Initialize initial balls
+    for (let i = 0; i < initialBalls; i++) {
+      balls.push(new Ball());
+    }
+
+    // Ball class
+    function Ball(x, y, vx, vy) {
+      // If no parameters, initialize randomly inside the circle
+      if (x === undefined) {
+        const angle = Math.random() * 2 * Math.PI;
+        const r = Math.random() * (radius - ballRadius);
+        this.x = centerX + r * Math.cos(angle);
+        this.y = centerY + r * Math.sin(angle);
+        // Random velocity
+        const speed = 2;
+        const direction = Math.random() * 2 * Math.PI;
+        this.vx = speed * Math.cos(direction);
+        this.vy = speed * Math.sin(direction);
+      } else {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+      }
+      this.radius = ballRadius;
+      this.color = getRandomColor();
+    }
+
+    // Update ball position
+    Ball.prototype.update = function() {
+      this.x += this.vx;
+      this.y += this.vy;
+
+      // Calculate distance from center
+      const dx = this.x - centerX;
+      const dy = this.y - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Check collision with circle boundary
+      if (distance + this.radius >= radius) {
+        // Calculate angle of collision
+        const angle = Math.atan2(dy, dx);
+
+        // Check if within the interrupted segment
+        const rotatedAngle = angle - rotationAngle;
+        const halfGap = interruptedAngle / 2;
+        if (Math.abs(rotatedAngle) < halfGap || Math.abs(rotatedAngle - 2 * Math.PI) < halfGap) {
+          // Ball exits through the gap
+          removeBall(this);
+          spawnBalls(this.x, this.y);
+          return;
+        }
+
+        // Reflect velocity
+        const normalX = dx / distance;
+        const normalY = dy / distance;
+        const dot = this.vx * normalX + this.vy * normalY;
+        this.vx -= 2 * dot * normalX;
+        this.vy -= 2 * dot * normalY;
+
+        // Prevent sticking to the boundary
+        this.x = centerX + (radius - this.radius) * normalX;
+        this.y = centerY + (radius - this.radius) * normalY;
+      }
+    };
+
+    // Draw ball
+    Ball.prototype.draw = function() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+      ctx.fillStyle = this.color;
+      ctx.fill();
+      ctx.closePath();
+    };
+
+    // Remove a ball from the balls array
+    function removeBall(ball) {
+      const index = balls.indexOf(ball);
+      if (index > -1) {
+        balls.splice(index, 1);
+      }
+    }
+
+    // Spawn two new balls at the exit point with random velocities
+    function spawnBalls(x, y) {
+      for (let i = 0; i < 2; i++) {
+        const speed = 2;
+        const angle = Math.random() * 2 * Math.PI;
+        const vx = speed * Math.cos(angle);
+        const vy = speed * Math.sin(angle);
+        balls.push(new Ball(x, y, vx, vy));
+      }
+    }
+
+    // Generate random color
+    function getRandomColor() {
+      const letters = '89ABCDEF';
+      let color = '#';
+      for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * letters.length)];
+      }
+      return color;
+    }
+
+    // Animation loop
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Save context and translate to center
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(rotationAngle);
+      ctx.translate(-centerX, -centerY);
+
+      // Draw spinning circle with interrupted segment
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.closePath();
+
+      // Draw interrupted segment
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, -interruptedAngle / 2 + rotationAngle, interruptedAngle / 2 + rotationAngle, false);
+      ctx.strokeStyle = '#222'; // Same as background to create the gap
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.closePath();
+
+      // Restore context
+      ctx.restore();
+
+      // Update rotation
+      rotationAngle += rotationSpeed;
+
+      // Update and draw balls
+      balls.forEach(ball => {
+        ball.update();
+        ball.draw();
+      });
+
+      requestAnimationFrame(animate);
+    }
+
+    // Start animation
+    animate();
   </script>
 </body>
 </html>
