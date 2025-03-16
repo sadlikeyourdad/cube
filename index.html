@@ -1,232 +1,515 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Spinning Circle with Bouncing Balls and Gravity</title>
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background-color: #222;
-    }
-    canvas {
-      display: block;
-    }
-  </style>
-</head>
-<body>
-  <canvas id="canvas"></canvas>
-
-  <script>
-    // Get canvas and context
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-
-    // Set canvas size to full window
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    // Handle window resize
-    window.addEventListener('resize', () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      centerX = canvas.width / 2;
-      centerY = canvas.height / 2;
-    });
-
-    // Circle properties
-    let centerX = canvas.width / 2;
-    let centerY = canvas.height / 2;
-    const radius = Math.min(canvas.width, canvas.height) / 4;
-    const rotationSpeed = 0.01; // Radians per frame
-    let rotationAngle = 0;
-
-    // Interrupted segment
-    const interruptedAngle = Math.PI / 6; // 30 degrees
-
-    // Gravity
-    const gravity = 0.01; // Adjust as needed
-
-    // Ball properties
-    const balls = [];
-    const ballRadius = 10;
-    const initialBalls = 2;
-
-    // Initialize initial balls
-    for (let i = 0; i < initialBalls; i++) {
-      balls.push(new Ball());
-    }
-
-    // Ball class
-    function Ball(x, y, vx, vy) {
-      // If no parameters, initialize randomly inside the circle
-      if (x === undefined) {
-        const angle = Math.random() * 2 * Math.PI;
-        const r = Math.random() * (radius - ballRadius);
-        this.x = centerX + r * Math.cos(angle);
-        this.y = centerY + r * Math.sin(angle);
-        // Random velocity
-        const speed = 2;
-        const direction = Math.random() * 2 * Math.PI;
-        this.vx = speed * Math.cos(direction);
-        this.vy = speed * Math.sin(direction);
-      } else {
-        this.x = x;
-        this.y = y;
-        this.vx = vx;
-        this.vy = vy;
-      }
-      this.radius = ballRadius;
-      this.color = getRandomColor();
-    }
-
-    // Update ball position
-    Ball.prototype.update = function() {
-      // Apply gravity
-      this.vy += gravity;
-
-      this.x += this.vx;
-      this.y += this.vy;
-
-      // Calculate distance from center
-      const dx = this.x - centerX;
-      const dy = this.y - centerY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      // Check collision with circle boundary
-      if (distance + this.radius >= radius) {
-        // Calculate angle of collision
-        const angle = Math.atan2(dy, dx);
-
-        // Calculate the current gap center angle
-        const gapCenterAngle = rotationAngle % (2 * Math.PI);
-        // Normalize gapCenterAngle to [0, 2π]
-        const normalizedGapCenter = (gapCenterAngle + 2 * Math.PI) % (2 * Math.PI);
-
-        // Calculate the difference between ball angle and gap center
-        let angleDiff = angle - normalizedGapCenter;
-
-        // Normalize angleDiff to [-π, π]
-        angleDiff = ((angleDiff + Math.PI) % (2 * Math.PI)) - Math.PI;
-
-        const halfGap = interruptedAngle / 2;
-
-        if (Math.abs(angleDiff) < halfGap) {
-          // Ball exits through the gap
-          removeBall(this);
-          spawnBallsAtCenter();
-          return;
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduQuest - Your Online Learning Platform</title>
+    <style>
+        /* Basic Reset */
+        body, h1, h2, h3, p, ul, li, form {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            font-size: 100%;
+            font: inherit;
+            vertical-align: baseline;
         }
 
-        // Reflect velocity with a slight random variation
-        const normalX = dx / distance;
-        const normalY = dy / distance;
-        const dot = this.vx * normalX + this.vy * normalY;
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            color: #333;
+        }
 
-        // Reflect the velocity
-        let newVx = this.vx - 2 * dot * normalX;
-        let newVy = this.vy - 2 * dot * normalY;
+        /* Navigation Bar */
+        .navbar {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 0;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+        }
 
-        // Add slight randomness to the reflection
-        const variation = 0.3; // Adjust for more or less randomness
-        newVx += (Math.random() - 0.5) * variation;
-        newVy += (Math.random() - 0.5) * variation;
+        .navbar ul {
+            list-style: none;
+            display: flex;
+        }
 
-        this.vx = newVx;
-        this.vy = newVy;
+        .navbar ul li {
+            margin-right: 20px;
+        }
 
-        // Prevent sticking to the boundary
-        this.x = centerX + (radius - this.radius) * normalX;
-        this.y = centerY + (radius - this.radius) * normalY;
-      }
+        .navbar ul li a {
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        }
 
-      // Optional: Remove balls that are moving too slow or out of bounds (to prevent infinite growth)
-      // Implement if needed
-    };
+        .navbar .search-bar input[type="text"] {
+            padding: 8px;
+            border: none;
+            border-radius: 5px;
+        }
 
-    // Draw ball
-    Ball.prototype.draw = function() {
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
-      ctx.fillStyle = this.color;
-      ctx.fill();
-      ctx.closePath();
-    };
+        /* Hero Section */
+        .hero {
+            position: relative;
+            height: 500px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: white;
+        }
 
-    // Remove a ball from the balls array
-    function removeBall(ball) {
-      const index = balls.indexOf(ball);
-      if (index > -1) {
-        balls.splice(index, 1);
-      }
-    }
+        .hero video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
+        }
 
-    // Spawn two new balls at the center with random velocities
-    function spawnBallsAtCenter() {
-      for (let i = 0; i < 2; i++) {
-        const speed = 2;
-        const angle = Math.random() * 2 * Math.PI;
-        const vx = speed * Math.cos(angle);
-        const vy = speed * Math.sin(angle);
-        balls.push(new Ball(centerX, centerY, vx, vy));
-      }
-    }
+        .hero-content {
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+        }
 
-    // Generate random color
-    function getRandomColor() {
-      const letters = '89ABCDEF';
-      let color = '#';
-      for (let i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * letters.length)];
-      }
-      return color;
-    }
+        .hero h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
 
-    // Animation loop
-    function animate() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+        .hero p {
+            font-size: 1.5em;
+        }
 
-      // Save context and translate to center
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.rotate(rotationAngle);
-      ctx.translate(-centerX, -centerY);
+        .hero button {
+            background-color: #28a745;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin-top: 20px;
+        }
 
-      // Draw spinning circle with interrupted segment
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.closePath();
+        /* Featured Courses Section */
+        .featured-courses {
+            padding: 50px 20px;
+            text-align: center;
+        }
 
-      // Draw interrupted segment
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, -interruptedAngle / 2, interruptedAngle / 2, false);
-      ctx.strokeStyle = '#222'; // Same as background to create the gap
-      ctx.lineWidth = 4;
-      ctx.stroke();
-      ctx.closePath();
+        .featured-courses h2 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+        }
 
-      // Restore context
-      ctx.restore();
+        .course-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            padding: 0 20px; /* Added padding for wider screens */
+        }
 
-      // Update rotation
-      rotationAngle += rotationSpeed;
-      rotationAngle %= (2 * Math.PI); // Keep rotationAngle within [0, 2π]
+        .course-card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
 
-      // Update and draw balls
-      balls.forEach(ball => {
-        ball.update();
-        ball.draw();
-      });
+        .course-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
 
-      requestAnimationFrame(animate);
-    }
+        .course-card-content {
+            padding: 20px;
+            text-align: left;
+        }
 
-    // Start animation
-    animate();
-  </script>
+        .course-card h3 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+        }
+
+        .course-card p {
+            font-size: 1em;
+            margin-bottom: 15px;
+        }
+
+        .course-card .instructor {
+            font-style: italic;
+            color: #6c757d;
+        }
+
+        /* Learning Paths Section */
+        .learning-paths {
+            background-color: #e9ecef;
+            padding: 50px 20px;
+            text-align: center;
+        }
+
+        .learning-paths h2 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+        }
+
+        .learning-paths button {
+            background-color: #17a2b8;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        /* Success Stories Section */
+        .success-stories {
+            padding: 50px 20px;
+            text-align: center;
+        }
+
+        .success-stories h2 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+        }
+
+        .testimonial-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .testimonial {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+
+        .testimonial p {
+            font-style: italic;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+        }
+
+        .testimonial .student {
+            font-weight: bold;
+            color: #495057;
+        }
+
+        /* Footer */
+        .footer {
+            background-color: #343a40;
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .footer ul {
+            list-style: none;
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .footer ul li {
+            margin: 0 15px;
+        }
+
+        .footer ul li a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .footer button {
+            background-color: #dc3545;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* Modal */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; /* 15% from the top and centered */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; /* Could be more or less, depending on screen size */
+            border-radius: 10px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Form */
+        form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        form input[type="text"],
+        form input[type="email"],
+        form textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Make sure padding and border don't affect the width */
+        }
+
+        form button[type="submit"] {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        form button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
+
+        /* Media Queries for Responsiveness */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .navbar ul {
+                margin-top: 10px;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .navbar ul li {
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+
+            .hero {
+                height: auto;
+                padding: 50px 0;
+            }
+
+            .course-grid, .testimonial-grid {
+                grid-template-columns: 1fr;
+            }
+
+             /* Adjustments for smaller screens */
+            .navbar .search-bar {
+                width: 100%;
+                margin-top: 10px; /* Add some spacing below the navigation links */
+            }
+
+            .navbar .search-bar input[type="text"] {
+                width: 100%; /* Make the search bar take the full width */
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <h1>EduQuest</h1>
+        <ul>
+            <li><a href="#">Math</a></li>
+            <li><a href="#">Science</a></li>
+            <li><a href="#">Languages</a></li>
+            <li><a href="#">Arts</a></li>
+        </ul>
+        <div class="search-bar">
+            <input type="text" placeholder="Search for courses...">
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <video autoplay loop muted>
+            <source src="https://player.vimeo.com/external/390764286.sd.mp4?s=f2708350ad218e029b0f981c45f57d73251b4783&profile_id=164&oauth2_token_id=57447761" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <div class="hero-content">
+            <h1 id="dynamic-tagline"></h1>
+            <p>Unlock your potential with our comprehensive online courses.</p>
+            <button>Get Started</button>
+        </div>
+    </section>
+
+    <!-- Featured Courses Section -->
+    <section class="featured-courses">
+        <h2>Featured Courses</h2>
+        <div class="course-grid">
+            <div class="course-card">
+                <img src="https://via.placeholder.com/400x200" alt="Course Image">
+                <div class="course-card-content">
+                    <h3>Introduction to Web Development</h3>
+                    <p>Learn the basics of HTML, CSS, and JavaScript.</p>
+                    <p class="instructor">Instructor: John Doe</p>
+                </div>
+            </div>
+            <div class="course-card">
+                <img src="https://via.placeholder.com/400x200" alt="Course Image">
+                <div class="course-card-content">
+                    <h3>Data Science Fundamentals</h3>
+                    <p>Explore the world of data analysis and machine learning.</p>
+                    <p class="instructor">Instructor: Jane Smith</p>
+                </div>
+            </div>
+            <div class="course-card">
+                <img src="https://via.placeholder.com/400x200" alt="Course Image">
+                <div class="course-card-content">
+                    <h3>Creative Writing Workshop</h3>
+                    <p>Develop your writing skills and unleash your creativity.</p>
+                    <p class="instructor">Instructor: David Lee</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Learning Paths Section -->
+    <section class="learning-paths">
+        <h2>Discover Your Learning Path</h2>
+        <p>Take our short quiz to find the perfect courses for your learning style and interests.</p>
+        <button>Start the Quiz</button>
+    </section>
+
+    <!-- Success Stories Section -->
+    <section class="success-stories">
+        <h2>Success Stories</h2>
+        <div class="testimonial-grid">
+            <div class="testimonial">
+                <p>"EduQuest helped me transition to a new career. The courses were engaging and the instructors were incredibly supportive."</p>
+                <p class="student">- Alice Johnson</p>
+            </div>
+            <div class="testimonial">
+                <p>"I was able to learn at my own pace and gain valuable skills that I use every day in my job. Thank you, EduQuest!"</p>
+                <p class="student">- Bob Williams</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <ul>
+            <li><a href="#">Blog</a></li>
+            <li><a href="#">FAQ</a></li>
+            <li><a href="#">Privacy Policy</a></li>
+        </ul>
+        <button id="contact-button">Contact Us</button>
+    </footer>
+
+    <!-- Contact Modal -->
+    <div id="contact-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <h2>Contact Us</h2>
+            <p>Have questions or need assistance? Reach out to our support team.</p>
+            <form>
+                <label for="name">Name:</label>
+                <input type="text" id="name" name="name" required>
+
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+
+                <label for="message">Message:</label>
+                <textarea id="message" name="message" rows="4" required></textarea>
+
+                <button type="submit">Submit</button>
+            </form>
+            <p>Or contact us directly:</p>
+            <p>Email: support@eduquest.com</p>
+            <p>Phone: (555) 123-4567</p>
+        </div>
+    </div>
+
+    <script>
+        // Dynamic Tagline Logic
+        const taglines = [
+            "Learn at your own pace",
+            "Discover new passions",
+            "Expand your horizons"
+        ];
+        let taglineIndex = 0;
+        const taglineElement = document.getElementById("dynamic-tagline");
+
+        function rotateTagline() {
+            taglineElement.textContent = taglines[taglineIndex];
+            taglineIndex = (taglineIndex + 1) % taglines.length;
+        }
+
+        setInterval(rotateTagline, 3000);
+
+        // Modal Logic
+        const modal = document.getElementById("contact-modal");
+        const btn = document.getElementById("contact-button");
+        const span = document.getElementsByClassName("close")[0];
+
+        btn.onclick = function() {
+            modal.style.display = "block";
+        }
+
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+    </script>
+
 </body>
 </html>
