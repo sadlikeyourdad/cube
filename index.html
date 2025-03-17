@@ -18,12 +18,22 @@
         }
         #ui label { margin-right: 5px; }
         #ui input { width: 80px; vertical-align: middle; }
+        #ui button { 
+            padding: 5px 10px; 
+            background: #333; 
+            color: white; 
+            border: none; 
+            border-radius: 3px; 
+            cursor: pointer; 
+        }
+        #ui button:hover { background: #555; }
     </style>
 </head>
 <body>
     <div id="ui">
         <label>Speed: <input type="range" id="speed" min="0.1" max="1" step="0.1" value="0.5"></label>
         <label>Density: <input type="range" id="density" min="500" max="2000" step="100" value="1000"></label>
+        <button id="startBtn">Start Simulation</button>
     </div>
 
     <script type="importmap">
@@ -44,31 +54,31 @@
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500);
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "low-power" });
         
-        // Optimize rendering for mobile: reduce pixel ratio and size
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap at 1.5x for iPhones
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
         // Camera initial position
         camera.position.set(0, 0, 30);
 
-        // Simplified controls for touch (no damping for better responsiveness)
+        // Touch-friendly controls
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = false;
         controls.enableZoom = true;
         controls.minDistance = 10;
         controls.maxDistance = 100;
 
-        // Particle system optimized for mobile
-        const particleCount = 1000; // Lower initial count for iPhone
+        // Particle system
+        const particleCount = 1000;
         let particles, particleSystem;
-        let expansionSpeed = 0.5; // Slower default for performance
+        let expansionSpeed = 0.5;
+        let isSimulationRunning = false; // Simulation starts paused
 
-        // Simplified shader for lower GPU load
+        // Shader material
         const particleShaderMaterial = new THREE.ShaderMaterial({
             uniforms: {
                 time: { value: 0 },
-                size: { value: 0.3 }, // Smaller particles
+                size: { value: 0.3 },
                 color: { value: new THREE.Color(0xffaa33) },
                 expansion: { value: 0 }
             },
@@ -78,9 +88,9 @@
                 uniform float expansion;
                 varying vec3 vColor;
                 void main() {
-                    vColor = vec3(1.0, 0.6, 0.3); // Fixed color for simplicity
+                    vColor = vec3(1.0, 0.6, 0.3);
                     vec3 newPosition = position * (1.0 + expansion);
-                    gl_PointSize = size * (200.0 / -mvPosition.z); // Reduced size calculation
+                    gl_PointSize = size * (200.0 / -mvPosition.z);
                     gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
                 }
             `,
@@ -96,17 +106,16 @@
             blending: THREE.AdditiveBlending
         });
 
-        // Initialize particle system
+        // Initialize particles
         function initParticles(count) {
             if (particleSystem) scene.remove(particleSystem);
             const geometry = new THREE.BufferGeometry();
             const positions = new Float32Array(count * 3);
 
-            // Tighter initial clustering for mobile
             for (let i = 0; i < count; i++) {
                 const theta = Math.random() * 2 * Math.PI;
                 const phi = Math.acos(2 * Math.random() - 1);
-                const r = Math.random() * 0.05; // Even smaller initial radius
+                const r = Math.random() * 0.05;
                 positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
                 positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
                 positions[i * 3 + 2] = r * Math.cos(phi);
@@ -120,68 +129,76 @@
 
         particles = initParticles(particleCount);
 
-        // Minimal lighting for performance
+        // Lighting
         const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
         scene.add(ambientLight);
 
-        const pointLight = new THREE.PointLight(0xffffff, 0.8, 50); // Reduced range
+        const pointLight = new THREE.PointLight(0xffffff, 0.8, 50);
         pointLight.position.set(0, 0, 5);
         scene.add(pointLight);
 
         // Animation variables
         let time = 0;
         let expansion = 0;
-
-        // Simplified camera animation
-        let isZooming = true;
+        let isZooming = false;
         let zoomTarget = 30;
 
-        // Animation loop with frame rate optimization
+        // Animation loop
         function animate() {
             requestAnimationFrame(animate);
 
-            // Update time and expansion (slower increments)
-            time += 0.005 * expansionSpeed; // Reduced step size
-            expansion = Math.min(expansion + 0.002 * expansionSpeed, 20); // Smaller max expansion
-            particleShaderMaterial.uniforms.time.value = time;
-            particleShaderMaterial.uniforms.expansion.value = expansion;
+            if (isSimulationRunning) {
+                // Update simulation only when running
+                time += 0.005 * expansionSpeed;
+                expansion = Math.min(expansion + 0.002 * expansionSpeed, 20);
+                particleShaderMaterial.uniforms.time.value = time;
+                particleShaderMaterial.uniforms.expansion.value = expansion;
 
-            // Simplified camera movement
-            if (isZooming) {
-                camera.position.z = THREE.MathUtils.lerp(camera.position.z, zoomTarget, 0.01);
-                if (Math.abs(camera.position.z - zoomTarget) < 0.1) {
-                    isZooming = false;
-                    zoomTarget = zoomTarget === 30 ? 60 : 30;
-                    setTimeout(() => isZooming = true, 3000); // Longer pause
+                // Camera zoom
+                if (isZooming) {
+                    camera.position.z = THREE.MathUtils.lerp(camera.position.z, zoomTarget, 0.01);
+                    if (Math.abs(camera.position.z - zoomTarget) < 0.1) {
+                        isZooming = false;
+                        zoomTarget = zoomTarget === 30 ? 60 : 30;
+                        setTimeout(() => isZooming = true, 3000);
+                    }
                 }
+
+                particleSystem.rotation.y += 0.0005;
             }
 
-            // Minimal rotation
-            particleSystem.rotation.y += 0.0005;
-
-            // Update controls and render
             controls.update();
             renderer.render(scene, camera);
         }
 
-        // UI event listeners with debouncing for touch
+        // UI controls
         const speedSlider = document.getElementById('speed');
         const densitySlider = document.getElementById('density');
+        const startButton = document.getElementById('startBtn');
 
-        let densityTimeout;
         speedSlider.addEventListener('input', (e) => {
             expansionSpeed = parseFloat(e.target.value);
         });
 
+        let densityTimeout;
         densitySlider.addEventListener('input', (e) => {
             clearTimeout(densityTimeout);
             densityTimeout = setTimeout(() => {
                 const newCount = parseInt(e.target.value);
                 particles = initParticles(newCount);
-            }, 200); // Debounce to reduce redraws
+            }, 200);
         });
 
-        // Handle resize with pixel ratio adjustment
+        startButton.addEventListener('click', () => {
+            if (!isSimulationRunning) {
+                isSimulationRunning = true;
+                isZooming = true; // Start camera animation with simulation
+                startButton.textContent = "Simulation Running";
+                startButton.disabled = true; // Prevent multiple starts
+            }
+        });
+
+        // Handle resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -189,7 +206,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Start animation
+        // Start animation loop (rendering always active, simulation paused)
         animate();
     </script>
 </body>
