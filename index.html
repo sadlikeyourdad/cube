@@ -2,148 +2,195 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Big Bang Simulation (iPhone Optimized)</title>
     <style>
-        body { margin: 0; background-color: black; text-align: center; }
-        canvas { background-color: #222; display: block; margin: auto; }
-        #instructions {
+        body { margin: 0; overflow: hidden; background: #000; }
+        canvas { display: block; }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
             color: white;
-            font-size: 16px;
-            margin-top: 10px;
             font-family: Arial, sans-serif;
+            font-size: 14px;
+            z-index: 10;
         }
+        #ui label { margin-right: 5px; }
+        #ui input { width: 80px; vertical-align: middle; }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
-    <div id="instructions">Swipe to move the snake!</div>
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+    <div id="ui">
+        <label>Speed: <input type="range" id="speed" min="0.1" max="1" step="0.1" value="0.5"></label>
+        <label>Density: <input type="range" id="density" min="500" max="2000" step="100" value="1000"></label>
+    </div>
 
-        // Game Variables
-        const gridSize = 20;
-        let snake = [{ x: 200, y: 200 }];
-        let food = { x: 100, y: 100 };
-        let dx = 0, dy = 0; // Snake starts stationary
-        let score = 0;
-        let gameRunning = false;
-
-        // Resize Canvas for iPhone Compatibility
-        function resizeCanvas() {
-            canvas.width = Math.min(window.innerWidth, 400);
-            canvas.height = Math.min(window.innerHeight, 400);
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
-        // Place Food Randomly
-        function placeFood() {
-            food.x = Math.floor(Math.random() * (canvas.width / gridSize)) * gridSize;
-            food.y = Math.floor(Math.random() * (canvas.height / gridSize)) * gridSize;
-        }
-
-        // Collision Detection
-        function isColliding(a, b) {
-            return a.x === b.x && a.y === b.y;
-        }
-
-        // Start Game on First Movement
-        function startGame() {
-            if (!gameRunning) {
-                gameRunning = true;
-                gameLoop();
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
             }
         }
+    </script>
 
-        // Game Loop
-        function gameLoop() {
-            if (!gameRunning) return;
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-            // Move Snake
-            const newHead = { x: snake[0].x + dx, y: snake[0].y + dy };
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "low-power" });
+        
+        // Optimize rendering for mobile: reduce pixel ratio and size
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap at 1.5x for iPhones
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-            // Wall Collision
-            if (newHead.x < 0 || newHead.x >= canvas.width || newHead.y < 0 || newHead.y >= canvas.height) {
-                alert(`Game Over! Score: ${score}`);
-                document.location.reload();
-                return;
-            }
+        // Camera initial position
+        camera.position.set(0, 0, 30);
 
-            // Self Collision
-            if (snake.some(segment => isColliding(segment, newHead))) {
-                alert(`Game Over! Score: ${score}`);
-                document.location.reload();
-                return;
-            }
+        // Simplified controls for touch (no damping for better responsiveness)
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = false;
+        controls.enableZoom = true;
+        controls.minDistance = 10;
+        controls.maxDistance = 100;
 
-            snake.unshift(newHead);
+        // Particle system optimized for mobile
+        const particleCount = 1000; // Lower initial count for iPhone
+        let particles, particleSystem;
+        let expansionSpeed = 0.5; // Slower default for performance
 
-            // Eat Food
-            if (isColliding(newHead, food)) {
-                score++;
-                placeFood();
-            } else {
-                snake.pop();
-            }
-
-            drawGame();
-            setTimeout(gameLoop, 100);
-        }
-
-        // Draw Game
-        function drawGame() {
-            ctx.fillStyle = "#222";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw Snake
-            ctx.fillStyle = "lime";
-            snake.forEach(segment => {
-                ctx.fillRect(segment.x, segment.y, gridSize, gridSize);
-            });
-
-            // Draw Food
-            ctx.fillStyle = "red";
-            ctx.fillRect(food.x, food.y, gridSize, gridSize);
-        }
-
-        // Touch Controls (iPhone Swipe)
-        let touchStartX = 0, touchStartY = 0;
-
-        canvas.addEventListener('touchstart', (e) => {
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
+        // Simplified shader for lower GPU load
+        const particleShaderMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 },
+                size: { value: 0.3 }, // Smaller particles
+                color: { value: new THREE.Color(0xffaa33) },
+                expansion: { value: 0 }
+            },
+            vertexShader: `
+                uniform float time;
+                uniform float size;
+                uniform float expansion;
+                varying vec3 vColor;
+                void main() {
+                    vColor = vec3(1.0, 0.6, 0.3); // Fixed color for simplicity
+                    vec3 newPosition = position * (1.0 + expansion);
+                    gl_PointSize = size * (200.0 / -mvPosition.z); // Reduced size calculation
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec3 vColor;
+                void main() {
+                    float dist = length(gl_PointCoord - vec2(0.5));
+                    if (dist > 0.5) discard;
+                    gl_FragColor = vec4(vColor, 1.0 - dist);
+                }
+            `,
+            transparent: true,
+            blending: THREE.AdditiveBlending
         });
 
-        canvas.addEventListener('touchend', (e) => {
-            if (!gameRunning) startGame(); // Start game on first swipe
+        // Initialize particle system
+        function initParticles(count) {
+            if (particleSystem) scene.remove(particleSystem);
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
 
-            let deltaX = e.changedTouches[0].clientX - touchStartX;
-            let deltaY = e.changedTouches[0].clientY - touchStartY;
-
-            if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                if (deltaX > 0 && dx === 0) { dx = gridSize; dy = 0; } // Right
-                else if (deltaX < 0 && dx === 0) { dx = -gridSize; dy = 0; } // Left
-            } else {
-                if (deltaY > 0 && dy === 0) { dx = 0; dy = gridSize; } // Down
-                else if (deltaY < 0 && dy === 0) { dx = 0; dy = -gridSize; } // Up
+            // Tighter initial clustering for mobile
+            for (let i = 0; i < count; i++) {
+                const theta = Math.random() * 2 * Math.PI;
+                const phi = Math.acos(2 * Math.random() - 1);
+                const r = Math.random() * 0.05; // Even smaller initial radius
+                positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                positions[i * 3 + 2] = r * Math.cos(phi);
             }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particleSystem = new THREE.Points(geometry, particleShaderMaterial);
+            scene.add(particleSystem);
+            return particleSystem;
+        }
+
+        particles = initParticles(particleCount);
+
+        // Minimal lighting for performance
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 0.8, 50); // Reduced range
+        pointLight.position.set(0, 0, 5);
+        scene.add(pointLight);
+
+        // Animation variables
+        let time = 0;
+        let expansion = 0;
+
+        // Simplified camera animation
+        let isZooming = true;
+        let zoomTarget = 30;
+
+        // Animation loop with frame rate optimization
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update time and expansion (slower increments)
+            time += 0.005 * expansionSpeed; // Reduced step size
+            expansion = Math.min(expansion + 0.002 * expansionSpeed, 20); // Smaller max expansion
+            particleShaderMaterial.uniforms.time.value = time;
+            particleShaderMaterial.uniforms.expansion.value = expansion;
+
+            // Simplified camera movement
+            if (isZooming) {
+                camera.position.z = THREE.MathUtils.lerp(camera.position.z, zoomTarget, 0.01);
+                if (Math.abs(camera.position.z - zoomTarget) < 0.1) {
+                    isZooming = false;
+                    zoomTarget = zoomTarget === 30 ? 60 : 30;
+                    setTimeout(() => isZooming = true, 3000); // Longer pause
+                }
+            }
+
+            // Minimal rotation
+            particleSystem.rotation.y += 0.0005;
+
+            // Update controls and render
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // UI event listeners with debouncing for touch
+        const speedSlider = document.getElementById('speed');
+        const densitySlider = document.getElementById('density');
+
+        let densityTimeout;
+        speedSlider.addEventListener('input', (e) => {
+            expansionSpeed = parseFloat(e.target.value);
         });
 
-        // Keyboard Controls (Desktop)
-        window.addEventListener('keydown', (e) => {
-            if (!gameRunning) startGame(); // Start game on first keypress
-
-            if (e.key === "ArrowUp" && dy === 0) { dx = 0; dy = -gridSize; }
-            else if (e.key === "ArrowDown" && dy === 0) { dx = 0; dy = gridSize; }
-            else if (e.key === "ArrowLeft" && dx === 0) { dx = -gridSize; dy = 0; }
-            else if (e.key === "ArrowRight" && dx === 0) { dx = gridSize; dy = 0; }
+        densitySlider.addEventListener('input', (e) => {
+            clearTimeout(densityTimeout);
+            densityTimeout = setTimeout(() => {
+                const newCount = parseInt(e.target.value);
+                particles = initParticles(newCount);
+            }, 200); // Debounce to reduce redraws
         });
 
-        // Initialize Game
-        placeFood();
-        drawGame(); // Show initial game state before movement
+        // Handle resize with pixel ratio adjustment
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start animation
+        animate();
     </script>
 </body>
 </html>
