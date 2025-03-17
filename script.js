@@ -1,94 +1,115 @@
-// Scene Setup
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-// Lighting Setup
-const pointLight = new THREE.PointLight(0xffffff, 2, 500);
-pointLight.position.set(0, 0, 0);
-scene.add(pointLight);
+const gridSize = 20;
+let snake = [{ x: 200, y: 200 }];
+let food = { x: 100, y: 100 };
+let dx = gridSize, dy = 0;
+let score = 0;
+let gameRunning = true;
 
-// Particle System Variables
-let particles, particleSystem;
-let expansionSpeed = 1;
-let particleCount = 20000;
+// Resize Canvas for iPhone Compatibility
+function resizeCanvas() {
+    canvas.width = Math.min(window.innerWidth, 400);
+    canvas.height = Math.min(window.innerHeight, 400);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
 
-// Create Particle System
-function createParticles() {
-    if (particleSystem) scene.remove(particleSystem);
+// Place Food Randomly
+function placeFood() {
+    food.x = Math.floor(Math.random() * (canvas.width / gridSize)) * gridSize;
+    food.y = Math.floor(Math.random() * (canvas.height / gridSize)) * gridSize;
+}
 
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const velocities = new Float32Array(particleCount * 3);
+// Check Collision
+function isColliding(a, b) {
+    return a.x === b.x && a.y === b.y;
+}
 
-    for (let i = 0; i < particleCount; i++) {
-        positions[i * 3] = (Math.random() - 0.5) * 10;
-        positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+// Game Loop
+function gameLoop() {
+    if (!gameRunning) return;
 
-        velocities[i * 3] = (Math.random() - 0.5) * 2;
-        velocities[i * 3 + 1] = (Math.random() - 0.5) * 2;
-        velocities[i * 3 + 2] = (Math.random() - 0.5) * 2;
+    // Move Snake
+    const newHead = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+    // Wall Collision
+    if (newHead.x < 0 || newHead.x >= canvas.width || newHead.y < 0 || newHead.y >= canvas.height) {
+        gameRunning = false;
+        alert(`Game Over! Score: ${score}`);
+        document.location.reload();
+        return;
     }
 
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+    // Self Collision
+    if (snake.some(segment => isColliding(segment, newHead))) {
+        gameRunning = false;
+        alert(`Game Over! Score: ${score}`);
+        document.location.reload();
+        return;
+    }
 
-    const material = new THREE.PointsMaterial({
-        color: 0xffffff,
-        size: 0.2,
-        transparent: true,
-        opacity: 0.8
+    snake.unshift(newHead);
+
+    // Eat Food
+    if (isColliding(newHead, food)) {
+        score++;
+        placeFood();
+    } else {
+        snake.pop();
+    }
+
+    drawGame();
+    setTimeout(gameLoop, 100);
+}
+
+// Draw Game
+function drawGame() {
+    ctx.fillStyle = "#222";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Snake
+    ctx.fillStyle = "lime";
+    snake.forEach(segment => {
+        ctx.fillRect(segment.x, segment.y, gridSize, gridSize);
     });
 
-    particleSystem = new THREE.Points(geometry, material);
-    scene.add(particleSystem);
+    // Draw Food
+    ctx.fillStyle = "red";
+    ctx.fillRect(food.x, food.y, gridSize, gridSize);
 }
 
-createParticles();
+// Touch Controls for iPhone
+let touchStartX = 0, touchStartY = 0;
 
-// Camera Position
-camera.position.z = 50;
+canvas.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+});
 
-// Animation Loop
-function animate() {
-    requestAnimationFrame(animate);
+canvas.addEventListener('touchmove', (e) => {
+    if (!gameRunning) return;
+    let deltaX = e.touches[0].clientX - touchStartX;
+    let deltaY = e.touches[0].clientY - touchStartY;
 
-    const positions = particleSystem.geometry.attributes.position.array;
-    const velocities = particleSystem.geometry.attributes.velocity.array;
-
-    for (let i = 0; i < particleCount; i++) {
-        positions[i * 3] += velocities[i * 3] * expansionSpeed;
-        positions[i * 3 + 1] += velocities[i * 3 + 1] * expansionSpeed;
-        positions[i * 3 + 2] += velocities[i * 3 + 2] * expansionSpeed;
-
-        velocities[i * 3] *= 1.01;
-        velocities[i * 3 + 1] *= 1.01;
-        velocities[i * 3 + 2] *= 1.01;
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (deltaX > 0 && dx === 0) { dx = gridSize; dy = 0; }
+        else if (deltaX < 0 && dx === 0) { dx = -gridSize; dy = 0; }
+    } else {
+        if (deltaY > 0 && dy === 0) { dx = 0; dy = gridSize; }
+        else if (deltaY < 0 && dy === 0) { dx = 0; dy = -gridSize; }
     }
-
-    particleSystem.geometry.attributes.position.needsUpdate = true;
-
-    renderer.render(scene, camera);
-}
-
-animate();
-
-// UI Controls
-document.getElementById('speed').addEventListener('input', (event) => {
-    expansionSpeed = parseFloat(event.target.value);
 });
 
-document.getElementById('density').addEventListener('input', (event) => {
-    particleCount = parseInt(event.target.value);
-    createParticles();
+// Keyboard Controls (for Desktop)
+window.addEventListener('keydown', (e) => {
+    if (e.key === "ArrowUp" && dy === 0) { dx = 0; dy = -gridSize; }
+    else if (e.key === "ArrowDown" && dy === 0) { dx = 0; dy = gridSize; }
+    else if (e.key === "ArrowLeft" && dx === 0) { dx = -gridSize; dy = 0; }
+    else if (e.key === "ArrowRight" && dx === 0) { dx = gridSize; dy = 0; }
 });
 
-// Resize Event
-window.addEventListener('resize', () => {
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-});
+// Start Game
+placeFood();
+gameLoop();
