@@ -4,9 +4,9 @@ const ctx = canvas.getContext('2d');
 const gridSize = 20;
 let snake = [{ x: 200, y: 200 }];
 let food = { x: 100, y: 100 };
-let dx = gridSize, dy = 0;
+let dx = 0, dy = 0; // Initially, the snake doesn't move
 let score = 0;
-let gameRunning = true;
+let gameRunning = false;
 
 // Resize Canvas for iPhone Compatibility
 function resizeCanvas() {
@@ -27,6 +27,14 @@ function isColliding(a, b) {
     return a.x === b.x && a.y === b.y;
 }
 
+// Start Game when first move is made
+function startGame() {
+    if (!gameRunning) {
+        gameRunning = true;
+        gameLoop();
+    }
+}
+
 // Game Loop
 function gameLoop() {
     if (!gameRunning) return;
@@ -36,7 +44,6 @@ function gameLoop() {
 
     // Wall Collision
     if (newHead.x < 0 || newHead.x >= canvas.width || newHead.y < 0 || newHead.y >= canvas.height) {
-        gameRunning = false;
         alert(`Game Over! Score: ${score}`);
         document.location.reload();
         return;
@@ -44,7 +51,6 @@ function gameLoop() {
 
     // Self Collision
     if (snake.some(segment => isColliding(segment, newHead))) {
-        gameRunning = false;
         alert(`Game Over! Score: ${score}`);
         document.location.reload();
         return;
@@ -80,7 +86,7 @@ function drawGame() {
     ctx.fillRect(food.x, food.y, gridSize, gridSize);
 }
 
-// Touch Controls for iPhone
+// Touch Controls for iPhone (Start Game on First Swipe)
 let touchStartX = 0, touchStartY = 0;
 
 canvas.addEventListener('touchstart', (e) => {
@@ -88,10 +94,11 @@ canvas.addEventListener('touchstart', (e) => {
     touchStartY = e.touches[0].clientY;
 });
 
-canvas.addEventListener('touchmove', (e) => {
-    if (!gameRunning) return;
-    let deltaX = e.touches[0].clientX - touchStartX;
-    let deltaY = e.touches[0].clientY - touchStartY;
+canvas.addEventListener('touchend', (e) => {
+    if (!gameRunning) startGame(); // Start game on first interaction
+
+    let deltaX = e.changedTouches[0].clientX - touchStartX;
+    let deltaY = e.changedTouches[0].clientY - touchStartY;
 
     if (Math.abs(deltaX) > Math.abs(deltaY)) {
         if (deltaX > 0 && dx === 0) { dx = gridSize; dy = 0; }
@@ -104,12 +111,14 @@ canvas.addEventListener('touchmove', (e) => {
 
 // Keyboard Controls (for Desktop)
 window.addEventListener('keydown', (e) => {
+    if (!gameRunning) startGame(); // Start game on first keypress
+
     if (e.key === "ArrowUp" && dy === 0) { dx = 0; dy = -gridSize; }
     else if (e.key === "ArrowDown" && dy === 0) { dx = 0; dy = gridSize; }
     else if (e.key === "ArrowLeft" && dx === 0) { dx = -gridSize; dy = 0; }
     else if (e.key === "ArrowRight" && dx === 0) { dx = gridSize; dy = 0; }
 });
 
-// Start Game
+// Initialize Game
 placeFood();
-gameLoop();
+drawGame(); // Show initial game state before movement
