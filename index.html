@@ -16,8 +16,6 @@
             font-size: 14px;
             z-index: 10;
         }
-        #ui label { margin-right: 5px; }
-        #ui input { width: 80px; vertical-align: middle; }
         #ui button { 
             padding: 5px 10px; 
             background: #333; 
@@ -31,84 +29,57 @@
 </head>
 <body>
     <div id="ui">
-        <label>Speed: <input type="range" id="speed" min="0.1" max="1" step="0.1" value="0.5"></label>
-        <label>Density: <input type="range" id="density" min="500" max="2000" step="100" value="1000"></label>
         <button id="startBtn">Start Simulation</button>
     </div>
 
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
             }
         }
     </script>
 
     <script type="module">
         import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // Log to check if script runs
+        console.log("Script loaded, initializing Three.js");
 
         // Scene setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500);
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "low-power" });
-        
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
 
-        // Camera initial position
-        camera.position.set(0, 0, 30);
+        try {
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            console.log("Renderer initialized successfully");
+        } catch (error) {
+            console.error("Renderer setup failed:", error);
+        }
 
-        // Touch-friendly controls
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = false;
-        controls.enableZoom = true;
-        controls.minDistance = 10;
-        controls.maxDistance = 100;
+        // Camera position
+        camera.position.set(0, 0, 10);
 
         // Particle system
-        const particleCount = 1000;
-        let particles, particleSystem;
-        let expansionSpeed = 0.5;
-        let isSimulationRunning = false; // Simulation starts paused
+        const particleCount = 500; // Even lower for testing
+        let particleSystem;
+        let isSimulationRunning = false;
+        let expansion = 0;
 
-        // Shader material
-        const particleShaderMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                time: { value: 0 },
-                size: { value: 0.3 },
-                color: { value: new THREE.Color(0xffaa33) },
-                expansion: { value: 0 }
-            },
-            vertexShader: `
-                uniform float time;
-                uniform float size;
-                uniform float expansion;
-                varying vec3 vColor;
-                void main() {
-                    vColor = vec3(1.0, 0.6, 0.3);
-                    vec3 newPosition = position * (1.0 + expansion);
-                    gl_PointSize = size * (200.0 / -mvPosition.z);
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
-                }
-            `,
-            fragmentShader: `
-                varying vec3 vColor;
-                void main() {
-                    float dist = length(gl_PointCoord - vec2(0.5));
-                    if (dist > 0.5) discard;
-                    gl_FragColor = vec4(vColor, 1.0 - dist);
-                }
-            `,
+        // Basic material (no shaders for simplicity)
+        const particleMaterial = new THREE.PointsMaterial({
+            color: 0xffaa33,
+            size: 0.2,
             transparent: true,
             blending: THREE.AdditiveBlending
         });
 
         // Initialize particles
         function initParticles(count) {
-            if (particleSystem) scene.remove(particleSystem);
+            console.log("Initializing particles with count:", count);
             const geometry = new THREE.BufferGeometry();
             const positions = new Float32Array(count * 3);
 
@@ -122,79 +93,45 @@
             }
 
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            particleSystem = new THREE.Points(geometry, particleShaderMaterial);
+            particleSystem = new THREE.Points(geometry, particleMaterial);
             scene.add(particleSystem);
             return particleSystem;
         }
 
-        particles = initParticles(particleCount);
-
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
-        scene.add(ambientLight);
-
-        const pointLight = new THREE.PointLight(0xffffff, 0.8, 50);
-        pointLight.position.set(0, 0, 5);
-        scene.add(pointLight);
-
-        // Animation variables
-        let time = 0;
-        let expansion = 0;
-        let isZooming = false;
-        let zoomTarget = 30;
+        try {
+            initParticles(particleCount);
+            console.log("Particles added to scene");
+        } catch (error) {
+            console.error("Particle initialization failed:", error);
+        }
 
         // Animation loop
         function animate() {
             requestAnimationFrame(animate);
 
             if (isSimulationRunning) {
-                // Update simulation only when running
-                time += 0.005 * expansionSpeed;
-                expansion = Math.min(expansion + 0.002 * expansionSpeed, 20);
-                particleShaderMaterial.uniforms.time.value = time;
-                particleShaderMaterial.uniforms.expansion.value = expansion;
-
-                // Camera zoom
-                if (isZooming) {
-                    camera.position.z = THREE.MathUtils.lerp(camera.position.z, zoomTarget, 0.01);
-                    if (Math.abs(camera.position.z - zoomTarget) < 0.1) {
-                        isZooming = false;
-                        zoomTarget = zoomTarget === 30 ? 60 : 30;
-                        setTimeout(() => isZooming = true, 3000);
-                    }
+                expansion += 0.002; // Simple expansion
+                const positions = particleSystem.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i] *= 1.005;     // Expand X
+                    positions[i + 1] *= 1.005; // Expand Y
+                    positions[i + 2] *= 1.005; // Expand Z
                 }
-
-                particleSystem.rotation.y += 0.0005;
+                particleSystem.geometry.attributes.position.needsUpdate = true;
+                console.log("Expansion step, value:", expansion);
             }
 
-            controls.update();
             renderer.render(scene, camera);
         }
 
-        // UI controls
-        const speedSlider = document.getElementById('speed');
-        const densitySlider = document.getElementById('density');
+        // Start button
         const startButton = document.getElementById('startBtn');
-
-        speedSlider.addEventListener('input', (e) => {
-            expansionSpeed = parseFloat(e.target.value);
-        });
-
-        let densityTimeout;
-        densitySlider.addEventListener('input', (e) => {
-            clearTimeout(densityTimeout);
-            densityTimeout = setTimeout(() => {
-                const newCount = parseInt(e.target.value);
-                particles = initParticles(newCount);
-            }, 200);
-        });
-
         startButton.addEventListener('click', () => {
             if (!isSimulationRunning) {
                 isSimulationRunning = true;
-                isZooming = true; // Start camera animation with simulation
                 startButton.textContent = "Simulation Running";
-                startButton.disabled = true; // Prevent multiple starts
+                startButton.disabled = true;
+                console.log("Simulation started");
             }
         });
 
@@ -206,8 +143,13 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Start animation loop (rendering always active, simulation paused)
-        animate();
+        // Start rendering
+        try {
+            animate();
+            console.log("Animation loop started");
+        } catch (error) {
+            console.error("Animation loop failed:", error);
+        }
     </script>
 </body>
 </html>
