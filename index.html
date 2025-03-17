@@ -3,26 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Big Bang Simulation</title>
+    <title>Snake Game</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: black; }
-        #controls {
-            position: absolute;
-            top: 10px;
-            left: 10px;
+        body { margin: 0; background-color: black; text-align: center; }
+        canvas { background-color: #222; display: block; margin: auto; }
+        #instructions {
             color: white;
+            font-size: 16px;
+            margin-top: 10px;
             font-family: Arial, sans-serif;
-            z-index: 100;
         }
     </style>
 </head>
 <body>
-    <div id="controls">
-        <label>Expansion Speed: <input type="range" id="speed" min="0.1" max="5" step="0.1" value="1"></label>
-        <label>Particle Density: <input type="range" id="density" min="1000" max="50000" step="1000" value="20000"></label>
-    </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dat.gui"></script>
+    <canvas id="gameCanvas"></canvas>
+    <div id="instructions">Swipe to move the snake!</div>
     <script src="script.js"></script>
 </body>
 </html>
