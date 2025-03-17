@@ -16,6 +16,8 @@
             font-size: 14px;
             z-index: 10;
         }
+        #ui label { margin-right: 5px; }
+        #ui input { width: 80px; vertical-align: middle; }
         #ui button { 
             padding: 5px 10px; 
             background: #333; 
@@ -23,12 +25,15 @@
             border: none; 
             border-radius: 3px; 
             cursor: pointer; 
+            margin-top: 5px; 
         }
         #ui button:hover { background: #555; }
     </style>
 </head>
 <body>
     <div id="ui">
+        <label>Speed: <input type="range" id="speed" min="0.1" max="1" step="0.1" value="0.5"></label>
+        <label>Density: <input type="range" id="density" min="200" max="1000" step="100" value="500"></label>
         <button id="startBtn">Start Simulation</button>
     </div>
 
@@ -43,7 +48,6 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // Log to check if script runs
         console.log("Script loaded, initializing Three.js");
 
         // Scene setup
@@ -64,12 +68,13 @@
         camera.position.set(0, 0, 10);
 
         // Particle system
-        const particleCount = 500; // Even lower for testing
+        let particleCount = 500; // Initial value, adjustable via slider
         let particleSystem;
         let isSimulationRunning = false;
+        let expansionSpeed = 0.5; // Initial value, adjustable via slider
         let expansion = 0;
 
-        // Basic material (no shaders for simplicity)
+        // Particle material
         const particleMaterial = new THREE.PointsMaterial({
             color: 0xffaa33,
             size: 0.2,
@@ -80,6 +85,10 @@
         // Initialize particles
         function initParticles(count) {
             console.log("Initializing particles with count:", count);
+            if (particleSystem) {
+                scene.remove(particleSystem);
+                particleSystem.geometry.dispose(); // Clean up old geometry
+            }
             const geometry = new THREE.BufferGeometry();
             const positions = new Float32Array(count * 3);
 
@@ -110,12 +119,12 @@
             requestAnimationFrame(animate);
 
             if (isSimulationRunning) {
-                expansion += 0.002; // Simple expansion
+                expansion += 0.002 * expansionSpeed; // Scale expansion with speed
                 const positions = particleSystem.geometry.attributes.position.array;
                 for (let i = 0; i < positions.length; i += 3) {
-                    positions[i] *= 1.005;     // Expand X
-                    positions[i + 1] *= 1.005; // Expand Y
-                    positions[i + 2] *= 1.005; // Expand Z
+                    positions[i] *= 1 + (0.005 * expansionSpeed);     // Expand X
+                    positions[i + 1] *= 1 + (0.005 * expansionSpeed); // Expand Y
+                    positions[i + 2] *= 1 + (0.005 * expansionSpeed); // Expand Z
                 }
                 particleSystem.geometry.attributes.position.needsUpdate = true;
                 console.log("Expansion step, value:", expansion);
@@ -124,8 +133,26 @@
             renderer.render(scene, camera);
         }
 
-        // Start button
+        // UI controls
+        const speedSlider = document.getElementById('speed');
+        const densitySlider = document.getElementById('density');
         const startButton = document.getElementById('startBtn');
+
+        speedSlider.addEventListener('input', (e) => {
+            expansionSpeed = parseFloat(e.target.value);
+            console.log("Expansion speed set to:", expansionSpeed);
+        });
+
+        let densityTimeout;
+        densitySlider.addEventListener('input', (e) => {
+            clearTimeout(densityTimeout);
+            densityTimeout = setTimeout(() => {
+                particleCount = parseInt(e.target.value);
+                initParticles(particleCount);
+                console.log("Particle density set to:", particleCount);
+            }, 200); // Debounce to avoid frequent updates
+        });
+
         startButton.addEventListener('click', () => {
             if (!isSimulationRunning) {
                 isSimulationRunning = true;
