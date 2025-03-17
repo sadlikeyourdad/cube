@@ -32,7 +32,7 @@
 </head>
 <body>
     <div id="ui">
-        <label>Speed: <input type="range" id="speed" min="0.1" max="1" step="0.1" value="0.5"></label>
+        <label>Speed: <input type="range" id="speed" min="0.5" max="5" step="0.5" value="2"></label>
         <label>Density: <input type="range" id="density" min="200" max="1000" step="100" value="500"></label>
         <button id="startBtn">Start Simulation</button>
     </div>
@@ -65,44 +65,70 @@
         }
 
         // Camera position
-        camera.position.set(0, 0, 10);
+        camera.position.set(0, 0, 15);
 
         // Particle system
-        let particleCount = 500; // Initial value, adjustable via slider
+        let particleCount = 500;
         let particleSystem;
         let isSimulationRunning = false;
-        let expansionSpeed = 0.5; // Initial value, adjustable via slider
+        let expansionSpeed = 2; // Default to a faster speed
         let expansion = 0;
 
-        // Particle material
-        const particleMaterial = new THREE.PointsMaterial({
-            color: 0xffaa33,
-            size: 0.2,
+        // Custom shader for smoother, glowing particles
+        const particleShaderMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 },
+                size: { value: 0.5 }, // Larger for less pixelation
+                color: { value: new THREE.Color(0xffaa33) },
+                expansion: { value: 0 }
+            },
+            vertexShader: `
+                uniform float time;
+                uniform float size;
+                uniform float expansion;
+                varying vec3 vColor;
+                void main() {
+                    vColor = vec3(1.0, 0.6 + sin(time) * 0.2, 0.3); // Subtle color shift
+                    vec3 newPosition = position * (1.0 + expansion);
+                    gl_PointSize = size * (300.0 / -mvPosition.z); // Adjusted for distance
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec3 vColor;
+                void main() {
+                    float dist = length(gl_PointCoord - vec2(0.5));
+                    if (dist > 0.5) discard;
+                    float alpha = smoothstep(0.5, 0.2, dist); // Smooth fade-out
+                    gl_FragColor = vec4(vColor, alpha);
+                }
+            `,
             transparent: true,
             blending: THREE.AdditiveBlending
         });
 
-        // Initialize particles
+        // Initialize particles with better distribution
         function initParticles(count) {
             console.log("Initializing particles with count:", count);
             if (particleSystem) {
                 scene.remove(particleSystem);
-                particleSystem.geometry.dispose(); // Clean up old geometry
+                particleSystem.geometry.dispose();
             }
             const geometry = new THREE.BufferGeometry();
             const positions = new Float32Array(count * 3);
 
             for (let i = 0; i < count; i++) {
+                // Spherical distribution with slight randomness
                 const theta = Math.random() * 2 * Math.PI;
                 const phi = Math.acos(2 * Math.random() - 1);
-                const r = Math.random() * 0.05;
+                const r = Math.pow(Math.random(), 0.5) * 0.1; // More even spread
                 positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
                 positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
                 positions[i * 3 + 2] = r * Math.cos(phi);
             }
 
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            particleSystem = new THREE.Points(geometry, particleMaterial);
+            particleSystem = new THREE.Points(geometry, particleShaderMaterial);
             scene.add(particleSystem);
             return particleSystem;
         }
@@ -114,19 +140,19 @@
             console.error("Particle initialization failed:", error);
         }
 
+        // Subtle ambient light for realism
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.2);
+        scene.add(ambientLight);
+
         // Animation loop
         function animate() {
             requestAnimationFrame(animate);
 
             if (isSimulationRunning) {
-                expansion += 0.002 * expansionSpeed; // Scale expansion with speed
-                const positions = particleSystem.geometry.attributes.position.array;
-                for (let i = 0; i < positions.length; i += 3) {
-                    positions[i] *= 1 + (0.005 * expansionSpeed);     // Expand X
-                    positions[i + 1] *= 1 + (0.005 * expansionSpeed); // Expand Y
-                    positions[i + 2] *= 1 + (0.005 * expansionSpeed); // Expand Z
-                }
-                particleSystem.geometry.attributes.position.needsUpdate = true;
+                expansion += 0.01 * expansionSpeed; // Faster base expansion
+                particleShaderMaterial.uniforms.expansion.value = expansion;
+                particleShaderMaterial.uniforms.time.value += 0.05; // Color shift
+                particleSystem.rotation.y += 0.001; // Subtle rotation
                 console.log("Expansion step, value:", expansion);
             }
 
@@ -148,9 +174,11 @@
             clearTimeout(densityTimeout);
             densityTimeout = setTimeout(() => {
                 particleCount = parseInt(e.target.value);
+                expansion = 0; // Reset expansion when changing density
+                particleShaderMaterial.uniforms.expansion.value = 0;
                 initParticles(particleCount);
                 console.log("Particle density set to:", particleCount);
-            }, 200); // Debounce to avoid frequent updates
+            }, 200);
         });
 
         startButton.addEventListener('click', () => {
